@@ -35,7 +35,7 @@ generateClassWithIdPrimaryKey jtflags cgp javaPackageFn mod dbtable = execState 
     gen = do
       generateClassCommon dbtable
 
-      J.addImport "au.com.helixta.adl.util.AdlTableWithId"
+      J.addImport "common.adl.util.AdlTableWithId"
 
       adlColumns <- mkAdlColumns cgp dbtable (SC.table_columns table) (AST.s_fields struct)
 
@@ -106,7 +106,7 @@ generateClass jtflags cgp javaPackageFn mod dbtable = execState gen state0
     gen = do
       generateClassCommon dbtable
 
-      J.addImport "au.com.helixta.adl.util.AdlTable"
+      J.addImport "common.adl.util.AdlTable"
 
       adlColumns <- mkAdlColumns cgp dbtable (SC.table_columns table) (AST.s_fields struct)
 
@@ -172,12 +172,12 @@ generateClassCommon dbtable  = do
   let (tableClassNameT,tableInstanceNameT,javaClassNameT,dbTableNameT) = mkNames dbtable
 
   rtPackage <- J.getRuntimePackage
-  J.addImport "au.com.helixta.adl.custom.DbKey"
-  J.addImport "au.com.helixta.adl.common.db.WithDbId"
-  J.addImport "au.com.helixta.adl.util.AdlField"
-  J.addImport "au.com.helixta.adl.util.DbConversions"
-  J.addImport "au.com.helixta.nofrills.sql.Dsl"
-  J.addImport "au.com.helixta.nofrills.sql.impl.DbResults"
+  J.addImport "common.adl.custom.DbKey"
+  J.addImport "common.adl.common.db.WithDbId"
+  J.addImport "common.adl.util.AdlField"
+  J.addImport "common.adl.util.DbConversions"
+  J.addImport "common.nofrills.sql.Dsl"
+  J.addImport "common.nofrills.sql.impl.DbResults"
   J.addImport (J.javaClass rtPackage "JsonBindings")
   J.addImport (J.javaClass rtPackage "JsonBinding")
   J.addImport "javax.annotation.Nullable"

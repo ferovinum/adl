@@ -56,12 +56,12 @@ generateJavaModelV1 jtflags cgp javaPackageFn mod (decl,struct,table,dbTableAnno
     dbTableNameT = dbTableName decl
     gen = do
       rtPackage <- J.getRuntimePackage
-      J.addImport "au.com.helixta.nofrills.sql.Dsl"
-      J.addImport "au.com.helixta.nofrills.sql.Dsl.Table"
-      J.addImport "au.com.helixta.nofrills.sql.Dsl.FieldRef"
-      J.addImport "au.com.helixta.nofrills.sql.Dsl.TypedField"
-      J.addImport "au.com.helixta.nofrills.sql.impl.DbResults"
-      J.addImport "au.com.helixta.util.sql.QueryHelper"
+      J.addImport "common.nofrills.sql.Dsl"
+      J.addImport "common.nofrills.sql.Dsl.Table"
+      J.addImport "common.nofrills.sql.Dsl.FieldRef"
+      J.addImport "common.nofrills.sql.Dsl.TypedField"
+      J.addImport "common.nofrills.sql.impl.DbResults"
+      J.addImport "common.util.sql.QueryHelper"
       J.addImport (J.javaClass rtPackage "JsonBindings")
       J.addImport "com.google.common.collect.ImmutableMap"
       J.addImport "com.google.common.collect.Maps"
@@ -72,7 +72,7 @@ generateJavaModelV1 jtflags cgp javaPackageFn mod (decl,struct,table,dbTableAnno
       J.addImport "java.util.Optional"
       J.addImport "java.util.function.Function"
       J.addImport "java.util.function.Supplier"
-      J.addImport "au.com.helixta.util.common.collect.Mapx"
+      J.addImport "common.util.common.collect.Mapx"
 
       J.addMethod (ctemplate "public static final $1 $2 = new $1();" [tableClassNameT, tableInstanceNameT])
 
