@@ -18,6 +18,7 @@ stack build --flag adl-compiler:bootstrap adl-compiler:adlc-bootstrap
 adlcb -I $CONFIG_ADL_DIR -O compiler/adlc-lib1 $CONFIG_ADL_DIR/haskell.adl
 adlcb -I $CONFIG_ADL_DIR -O compiler/adlc-lib1 $CONFIG_ADL_DIR/cpp.adl
 adlcb -I $CONFIG_ADL_DIR -O compiler/adlc-lib1 $CONFIG_ADL_DIR/java.adl
+adlcb -I $CONFIG_ADL_DIR -O compiler/adlc-lib1 $CONFIG_ADL_DIR/python.adl
 adlcb -I $CONFIG_ADL_DIR -O compiler/adlc-lib1 $CONFIG_ADL_DIR/typescript.adl
 adlcb -I $CONFIG_ADL_DIR -O compiler/adlc-lib1 $CONFIG_ADL_DIR/rust.adl
 

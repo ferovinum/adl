@@ -44,6 +44,9 @@ javaRuntimeDir libdir = libdir </> "java/runtime"
 haskellRuntimeDir :: FilePath -> FilePath
 haskellRuntimeDir libdir = libdir </> "haskell/runtime"
 
+pythonRuntimeDir :: FilePath -> FilePath
+pythonRuntimeDir libdir = libdir </> "python/runtime"
+
 systemAdlDir :: FilePath -> FilePath
 systemAdlDir libdir = libdir </> "adl"
 

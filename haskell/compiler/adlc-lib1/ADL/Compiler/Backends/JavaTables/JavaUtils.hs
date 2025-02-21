@@ -2,6 +2,8 @@
 module ADL.Compiler.Backends.JavaTables.JavaUtils where
 
 import qualified Data.Aeson as JS
+import qualified Data.Aeson.Key as K
+import qualified Data.Aeson.KeyMap as KM
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified Data.Map as M
@@ -52,7 +54,7 @@ dbTableName decl = fromMaybe (dbName (AST.d_name decl)) (tname decl `mplus` vnam
   tname decl = annStringField dbTableType "tableName" decl
   vname decl = annStringField dbViewType "viewName" decl
   annStringField annType field decl = case getAnnotation (AST.d_annotations decl) annType of
-    (Just (JS.Object hm)) -> case HM.lookup field hm of
+    (Just (JS.Object hm)) -> case KM.lookup (K.fromText field) hm of
       (Just (JS.String t)) -> Just t
       _ -> Nothing
     _ -> Nothing
@@ -64,7 +66,7 @@ dbName :: T.Text -> T.Text
 dbName =  SC.toSnakeCase
 
 getAnnotationField :: JS.Value -> T.Text -> Maybe JS.Value
-getAnnotationField (JS.Object hm) field = HM.lookup field hm
+getAnnotationField (JS.Object hm) field = KM.lookup (K.fromText field) hm
 getAnnotationField _ _ = Nothing
 
 dbTableType = AST.ScopedName (AST.ModuleName ["common","db"]) "DbTable"

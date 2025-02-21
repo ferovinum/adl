@@ -30,6 +30,8 @@ module ADL.Core.Value(
 ) where
 
 import qualified Data.Aeson as JS
+import qualified Data.Aeson.Key as K
+import qualified Data.Aeson.KeyMap as KM
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base64 as B64
 import qualified Data.ByteString.Lazy as LBS
@@ -158,7 +160,7 @@ textFromParseContext pc = T.intercalate "." (map fmt (reverse pc))
     fmt (ParseItem i) = "[" <> T.pack (show i) <> "]"
 
 genObject :: [o -> (T.Text, JS.Value)] -> JsonGen o
-genObject fieldfns = JsonGen (\o -> JS.object [f o | f <- fieldfns])
+genObject fieldfns = JsonGen (\o -> JS.object [(K.fromText k, v) | (k,v) <- map (\f -> f o) fieldfns])
 
 genField :: AdlValue a => T.Text -> (o -> a) -> o -> (T.Text, JS.Value)
 genField label f o = (label,adlToJson (f o))
@@ -167,18 +169,18 @@ genUnion :: (u -> JS.Value) -> JsonGen u
 genUnion f = JsonGen f
 
 genUnionValue :: AdlValue a => T.Text -> a -> JS.Value
-genUnionValue disc a = JS.object [(disc,adlToJson a)]
+genUnionValue disc a = JS.object [(K.fromText disc, adlToJson a)]
 
 genUnionVoid :: T.Text -> JS.Value
 genUnionVoid disc = JS.toJSON disc
 
 parseField :: AdlValue a => T.Text -> JsonParser a
-parseField label = withJsonObject $ \ctx hm -> case HM.lookup label hm of
+parseField label = withJsonObject $ \ctx hm -> case KM.lookup (K.fromText label) hm of
   (Just b) -> runJsonParser jsonParser (ParseField label:ctx) b
   _ -> ParseFailure ("expected field " <> label) ctx
 
 parseFieldDef :: AdlValue a => T.Text -> a -> JsonParser a
-parseFieldDef label defv = withJsonObject $ \ctx hm -> case HM.lookup label hm of
+parseFieldDef label defv = withJsonObject $ \ctx km -> case KM.lookup (K.fromText label) km of
   (Just b) -> runJsonParser jsonParser (ParseField label:ctx) b
   _ -> pure defv
 
@@ -189,8 +191,8 @@ parseUnion parseCase = JsonParser $ \ctx jv0 -> case parse0 ctx jv0 of
   where
     parse0 ctx jv = case jv of
       (JS.String disc) -> ParseSuccess (disc,JS.Null)
-      (JS.Object hm) | HM.size hm == 1 ->
-        let [(disc,v)] = HM.toList hm in  (ParseSuccess (disc,v))
+      (JS.Object km) | KM.size km == 1 ->
+        let [(disc,v)] = KM.toList km in  (ParseSuccess (K.toText disc, v))
       _ -> ParseFailure "expected string or singleton object for union" ctx
 
 parseUnionVoid :: a -> JsonParser a

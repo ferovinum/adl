@@ -7,6 +7,7 @@ import qualified ADL.Compiler.Backends.AST as A
 import qualified ADL.Compiler.Backends.Cpp as C
 import qualified ADL.Compiler.Backends.Java as J
 import qualified ADL.Compiler.Backends.Javascript as JS
+import qualified ADL.Compiler.Backends.Python as PY
 import qualified ADL.Compiler.Backends.Typescript as TS
 import qualified ADL.Compiler.Backends.Rust as RS
 import qualified ADL.Compiler.Backends.JavaTables as JT
@@ -219,6 +220,36 @@ runJavascript args = do
 
     optDescs = standardOptions
 
+runPython args = do
+  libDir <- liftIO $ getLibDir
+  let af = stdAdlFlags libDir ["adl-python"]
+  (flags, paths) <- parseArguments header af (flags0 libDir) optDescs args
+  withManifest (f_output flags) $ \ writer -> do
+    PY.generate (f_adl flags) (f_backend flags) writer paths
+  where
+    header = "Usage: adlc python [OPTION...] files..."
+
+    flags0 libDir = PY.PythonFlags {
+      PY.pfCodeGenProfile = PY.defaultCodeGenProfile,
+      PY.pfPackageName = "adl",
+      PY.pfModuleNameNormalisation = []
+    }
+
+    optDescs =
+      standardOptions <>
+      [ generateTransitiveOption setGenerateTransitive
+      , outputPackageOption (\s -> updateBackendFlags (\pyf -> pyf{PY.pfPackageName=T.pack s}))
+      , moduleNameNormalisationOption (\s -> updateBackendFlags (\pyf -> pyf{PY.pfModuleNameNormalisation=parseModuleNames s}))
+      ]
+
+    parseModuleNames :: String -> [ModuleName]
+    parseModuleNames ms = [ ModuleName (T.splitOn "." s) | s <- T.splitOn "," (T.pack ms) ]
+
+    moduleNameNormalisationOption ufn =
+      Option "" ["module-name-normalisation"]
+        (ReqArg ufn "MODULENAMES")
+        "The module names to be normalised (comma separated)"
+
 runTypescript args = do
   libDir <- liftIO $ getLibDir
   let af = stdAdlFlags libDir ["adl-ts"]
@@ -320,7 +351,7 @@ runRust args = do
       Option "R" ["runtime-module"]
         (ReqArg ufn "DIR")
         "Set the module where the runtime is located, relative to crate root"
-
+        
 runShow args0 =
   case args0 of
     ["--adlstdlib"] -> liftIO $ do
@@ -338,6 +369,7 @@ usage = T.intercalate "\n"
   , "       adlc java [OPTION..] <modulePath>..."
   , "       adlc java-tables [OPTION..] <modulePath>..."
   , "       adlc javascript [OPTION..] <modulePath>..."
+  , "       adlc python [OPTION..] <modulePath>..."
   , "       adlc typescript [OPTION..] <modulePath>..."
   , "       adlc rust [OPTION..] <modulePath>..."
   , "       adlc show --version"
@@ -354,6 +386,7 @@ main = do
     ("java":args) -> runJava args
     ("java-tables":args) -> JT.generateJavaTables args
     ("javascript":args) -> runJavascript args
+    ("python":args) -> runPython args
     ("typescript":args) -> runTypescript args
     ("rust":args) -> runRust args
     ("show":args) -> runShow args

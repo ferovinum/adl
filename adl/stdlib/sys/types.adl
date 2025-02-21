@@ -27,7 +27,9 @@ union Result<T, E> {
 
 struct MapEntry<K,V>
 {
+    ///test
     @SerializedName "k"
+    
     K key;
 
     @SerializedName "v"

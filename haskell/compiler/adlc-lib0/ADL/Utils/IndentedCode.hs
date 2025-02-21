@@ -138,3 +138,10 @@ capitalise text = T.cons (C.toUpper (T.head text)) (T.tail text)
 doubleQuote :: T.Text -> T.Text
 doubleQuote s = "\"" <> T.replace "\"" "\\\"" s <> "\""
 
+pyblock :: T.Text -> Code -> Code
+pyblock "" body = cline "" <> indent body
+pyblock intro body =  cline intro <> indent body
+
+pymethod :: [T.Text] -> T.Text -> Code -> Code
+pymethod decorators name body =
+  mconcat (map cline decorators) <> cline name <> indent body
