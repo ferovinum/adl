@@ -736,7 +736,7 @@ generateSealedUnion codeProfile moduleName javaPackageFn decl union =  execState
       for_ fieldDetails $ \fd -> do
         let recordName = (capitalise . f_name .fd_field) fd
             arg = if (isVoidType . f_type . fd_field) fd then "" else fd_typeExprStr fd <> " val"
-            constructor = cblock (template "public record $1$4($2) implements $3$4" [recordName, arg, className, typeArgs]) cempty
+            constructor = cblock (template "public record $1$2($3) implements $4$2" [recordName, typeArgs, arg, className]) cempty
         addMethod constructor
         addPermits (className <> "." <> recordName)
 
