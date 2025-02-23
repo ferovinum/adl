@@ -712,9 +712,12 @@ generateSealedUnion codeProfile moduleName javaPackageFn decl union =  execState
         then template "$1.<$2>cast($3)" [className,fd_boxedTypeExprStr fd,from]
         else template "($1) $2" [fd_boxedTypeExprStr fd,from]
 
-    unionType = if and voidTypes then AllVoids else if or voidTypes then Mixed else NoVoids
+    unionType
+      | and voidTypes = AllVoids
+      | or voidTypes = Mixed
+      | otherwise = NoVoids
       where
-        voidTypes = [isVoidType (f_type f) | f <- u_fields union]
+          voidTypes = [isVoidType (f_type f) | f <- u_fields union]
 
     gen = do
       addImport (javaClass (javaPackageFn moduleName) className)
