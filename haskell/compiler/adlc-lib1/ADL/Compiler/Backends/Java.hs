@@ -461,7 +461,6 @@ generateLegacyUnion codeProfile moduleName javaPackageFn decl union =  execState
 
       for_ fieldDetails (\fd -> preventImport (fd_memberVarName fd))
       for_ fieldDetails (\fd -> preventImport (fd_varName fd))
-      for_ fieldDetails (\fd -> addPermits (fd_varName fd))
 
       objectsClass <- addImport "java.util.Objects"
 
@@ -671,7 +670,7 @@ generateLegacyUnion codeProfile moduleName javaPackageFn decl union =  execState
                   cline ""
                   <>
                   typeExprMethodCode
-                  <>
+                  <> 
                   cline ""
                   <>
                   coverride (template "public JsonBinding<$1$2> jsonBinding()" [className,typeArgs]) (
