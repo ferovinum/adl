@@ -734,10 +734,10 @@ generateSealedUnion codeProfile moduleName javaPackageFn decl union =  execState
       objectsClass <- addImport "java.util.Objects"
 
       for_ fieldDetails $ \fd -> do
-        let recordName = capitalise (f_name (fd_field fd))
-            ctor = cblock (template "public record $1$4($2 val) implements $3$4" [recordName,fd_typeExprStr fd,className, typeArgs]) cempty
-            ctorVoid = cblock (template "public record $1$4() implements $3$4" [recordName,fd_typeExprStr fd,className, typeArgs]) cempty
-        addMethod (if isVoidType (f_type (fd_field fd)) then ctorVoid else ctor)
+        let recordName = (capitalise . f_name .fd_field) fd
+            arg = if isVoidType (f_type (fd_field fd)) then "" else fd_typeExprStr fd <> " val"
+            constructor = cblock (template "public record $1$4($2) implements $3$4" [recordName, arg, className, typeArgs]) cempty
+        addMethod constructor
         addPermits (className <> "." <> recordName)
 
       -- constructors
