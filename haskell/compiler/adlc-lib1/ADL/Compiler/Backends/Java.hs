@@ -728,8 +728,8 @@ generateSealedUnion codeProfile moduleName javaPackageFn decl union =  execState
         [] -> error "BUG: unions with no fields are illegal"
         (fd:_) -> return fd
 
-      for_ fieldDetails (\fd -> preventImport (fd_memberVarName fd))
-      for_ fieldDetails (\fd -> preventImport (fd_varName fd))
+      for_ fieldDetails (preventImport . fd_memberVarName)
+      for_ fieldDetails (preventImport . fd_varName)
 
       objectsClass <- addImport "java.util.Objects"
 
