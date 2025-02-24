@@ -9,6 +9,8 @@ import Numeric(readHex)
 import Control.Applicative
 
 import qualified Data.Aeson as JSON
+import qualified Data.Aeson.Key as K
+import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Scientific as S
 import qualified Data.Map as Map
 import qualified Data.Text as T
@@ -249,11 +251,11 @@ jsonValue =  p_null <|> p_true <|> p_false <|> p_string <|> p_number <|> p_array
     p_array = JSON.Array . V.fromList <$>
               (ctoken '[' *> P.sepBy jsonValue (ctoken ',') <* ctoken ']')
 
-    p_object = JSON.Object . HM.fromList <$>
+    p_object = JSON.Object . KM.fromList <$>
                (ctoken '{' *> P.sepBy p_field (ctoken ',') <* ctoken '}')
 
-    p_field :: P.Parser (T.Text,JSON.Value)
-    p_field = (,) <$> (p_string0 <* ctoken ':') <*> jsonValue
+    p_field :: P.Parser (K.Key,JSON.Value)
+    p_field = (,) <$> (K.fromText <$> p_string0 <* ctoken ':') <*> jsonValue
 
 pread :: ReadS a -> P.Parser a
 pread reads = do

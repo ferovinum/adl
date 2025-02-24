@@ -23,6 +23,8 @@ import System.FilePath(takeDirectory,joinPath,addExtension, splitDirectories, sp
 import qualified Data.Vector as V
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Aeson as JS
+import qualified Data.Aeson.Key as K
+import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Scientific as S
 
 import qualified Data.Text as T
@@ -577,7 +579,7 @@ generateLiteral te v =  generateLV Map.empty te v
     generateVec m te _ = error "BUG: vector literal requires a json array"
 
     generateStringMap m te (JS.Object hm) = do
-      pairs <- mapM genPair (HM.toList hm)
+      pairs <- mapM genPair [(K.toText k, v) | (k,v) <- KM.toList hm]
       return (template "(stringMapFromList [$1])" [T.intercalate ", " pairs])
       where
         genPair (k,jv) = do
@@ -600,7 +602,7 @@ generateLiteral te v =  generateLV Map.empty te v
 
     generateStruct m sn d s tes (JS.Object hm) = do
       fields <- forM (s_fields s) $ \f -> do
-        let mjv = HM.lookup (f_serializedName f) hm <|> f_default f
+        let mjv = KM.lookup (K.fromText (f_serializedName f)) hm <|> f_default f
             jv = case mjv of
               Just jv -> jv
               Nothing -> error ("BUG: missing default value for field " <> T.unpack (f_name f))
@@ -614,17 +616,17 @@ generateLiteral te v =  generateLV Map.empty te v
     generateUnion m sn d u tes (JS.String fname) = do
       unionCtor sn d u fname
     generateUnion m sn d u tes (JS.Object hm) = do
-      ctor <- unionCtor sn d u fname
+      ctor <- unionCtor sn d u (K.toText fname)
       if isVoidType te
         then return ctor
         else do
           lit <- generateLV m2 te v
           return (template "($1 $2)" [ctor,lit])
       where
-        (fname,v) = case HM.toList hm of
+        (fname,v) = case KM.toList hm of
           [v] -> v
           _ -> error "BUG: union literal must have a single key"
-        te = case L.find (\f -> f_serializedName f == fname) (u_fields u) of
+        te = case L.find (\f -> f_serializedName f == K.toText fname) (u_fields u) of
           Just f -> f_type f
           Nothing -> error "BUG: union literal key must be a field"
         m2 = withTypeBindings (u_typeParams u) tes m
