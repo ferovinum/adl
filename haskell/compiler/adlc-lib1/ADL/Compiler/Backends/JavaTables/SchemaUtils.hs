@@ -18,6 +18,8 @@ module ADL.Compiler.Backends.JavaTables.SchemaUtils
   ) where
 
 import qualified Data.Aeson as JS
+import qualified Data.Aeson.Key as K
+import qualified Data.Aeson.KeyMap as KM
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as M
 import qualified Data.Text as T
@@ -342,7 +344,7 @@ dbName :: T.Text -> T.Text
 dbName = toSnakeCase
 
 getLiteralField :: JS.Value -> T.Text -> Maybe JS.Value
-getLiteralField (JS.Object map) field = HM.lookup field map
+getLiteralField (JS.Object map) field = KM.lookup (K.fromText field) map
 getLiteralField _ _ = Nothing
 
 withCommas :: [a] -> [(a,T.Text)]

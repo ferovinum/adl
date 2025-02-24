@@ -2,6 +2,8 @@
 module ADL.Compiler.Backends.Typescript.Internal where
 
 import qualified Data.Aeson as JS
+import qualified Data.Aeson.Key as K
+import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Aeson.Text as JS
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Foldable as F
@@ -510,7 +512,7 @@ literalAst (JS.Number v) | isInteger v = mkUnion "integer" (JS.toJSON v) -- Shou
 literalAst (JS.Null) = mkVoidUnion "null"
 literalAst (JS.Object hm) = mkUnion "object" map
   where
-    map = JS.toJSON [JS.object [("v1",JS.toJSON k),("v2",literalAst v)] | (k,v) <- HM.toList hm]
+    map = JS.toJSON [JS.object [("v1",JS.toJSON k),("v2",literalAst v)] | (k,v) <- KM.toList hm]
 literalAst (JS.String s) = mkUnion "string" (JS.toJSON s)
 
 mkMaybe :: Maybe JS.Value -> JS.Value

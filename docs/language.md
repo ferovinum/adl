@@ -58,12 +58,12 @@ ADL supports the following primitive types:
 | Word8,Word16,Word32,Word64   | Unsigned integers                                      |
 | Bool                         | boolean values                                         |
 | Void                         | The unary or "null" type                               |
-| Float,Double                 | floating point values                                  |
+| Float,Double                 | floating point values                                   |
 | String                       | A unicode text string                                  |
 | Bytes                        | A packed array of bytes                                |
 | Json                         | An opaque json value                                   |
 | `Vector<T>`                  | A vector/array of type T                               |
-| `StringMap<T>`               | A map with string keys and values of type T            |
+| `StringMap<T>`               | An unordered map with string keys and values of type T |
 | `Nullable<T>`                | An optional value                                      |
 | `TypeToken<T>`               | A runtime representation of type T                     |
 

@@ -11,10 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Setup Stack
-        uses: haskell/actions/setup@v2
+        uses: haskell-actions/setup@v2
         with:
-          ghc-version: '8.8.4' # Exact version of ghc to use
-          # cabal-version: 'latest'. Omitted, but defaults to 'latest'
+          ghc-version: '9.4.8'
           enable-stack: true
           stack-version: 'latest'
 
@@ -25,7 +24,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.stack
-          key: ${{ runner.os }}-stack-global-${{ hashFiles('stack.yaml') }}-${{ hashFiles('package.yaml') }}
+          key: ${{ runner.os }}-stack-global-${{ hashFiles('haskell/stack.yaml') }}-${{ hashFiles('haskell/package.yaml') }}
           restore-keys: |
             ${{ runner.os }}-stack-global-
 
