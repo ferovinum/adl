@@ -24,7 +24,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.stack
-          key: ${{ runner.os }}-stack-global-${{ hashFiles('stack.yaml') }}-${{ hashFiles('package.yaml') }}
+          key: ${{ runner.os }}-stack-global-${{ hashFiles('haskell/stack.yaml') }}-${{ hashFiles('haskell/package.yaml') }}
           restore-keys: |
             ${{ runner.os }}-stack-global-
 
