@@ -58,7 +58,7 @@ ADL supports the following primitive types:
 | Word8,Word16,Word32,Word64   | Unsigned integers                                      |
 | Bool                         | boolean values                                         |
 | Void                         | The unary or "null" type                               |
-| Float,Double                 | floating point values                                  |
+| Float,Double                 | floating point values                                   |
 | String                       | A unicode text string                                  |
 | Bytes                        | A packed array of bytes                                |
 | Json                         | An opaque json value                                   |
