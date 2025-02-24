@@ -138,6 +138,7 @@ data CodeGenProfile = CodeGenProfile {
   cgp_hungarianNaming :: Bool,
   cgp_publicMembers :: Bool,
   cgp_genericFactories :: Bool,
+  cgp_sealedUnions :: Bool,
   cgp_builder :: Bool,
   cgp_parcelable :: Bool,
   cgp_runtimePackage :: JavaPackage,
@@ -151,6 +152,7 @@ defaultCodeGenProfile = CodeGenProfile {
   cgp_hungarianNaming = False,
   cgp_publicMembers = False,
   cgp_genericFactories = False,
+  cgp_sealedUnions = False,
   cgp_builder = True,
   cgp_parcelable = False,
   cgp_runtimePackage = defaultRuntimePackage,
@@ -166,6 +168,7 @@ data ClassFile = ClassFile {
    cf_javaPackageFn :: ModuleName -> JavaPackage,
    cf_imports :: Map.Map Ident (Maybe JavaPackage),
    cf_implements :: Set.Set T.Text,
+   cf_permits :: Set.Set T.Text,
    cf_docString :: Code,
    cf_decl :: T.Text,
    cf_fields :: [Code],
@@ -173,7 +176,7 @@ data ClassFile = ClassFile {
 }
 
 classFile :: CodeGenProfile -> ModuleName -> (ModuleName -> JavaPackage) -> T.Text -> ClassFile
-classFile codeProfile mname javaPackageFn decl = ClassFile codeProfile mname javaPackageFn Map.empty Set.empty mempty decl [] []
+classFile codeProfile mname javaPackageFn decl = ClassFile codeProfile mname javaPackageFn Map.empty Set.empty Set.empty mempty decl [] []
 
 cf_package :: ClassFile -> JavaPackage
 cf_package  cf = cf_javaPackageFn cf (cf_module cf)
@@ -219,8 +222,10 @@ classFileCode content =
     javaPackage = cf_package content
     imports = [javaClass package name | (name,Just package) <- Map.toList (cf_imports content), package /= javaPackage]
     header = cgp_header (cf_codeProfile content)
-    decl | Set.null (cf_implements content) = (template "$1" [cf_decl content])
-         | otherwise = (template "$1 implements $2" [cf_decl content,commaSep (Set.toList (cf_implements content))])
+    decl | Set.null (cf_implements content) && Set.null (cf_permits content) = (template "$1" [cf_decl content])
+         | Set.null (cf_implements content) = (template "$1 permits $2" [cf_decl content, commaSep (Set.toList (cf_permits content))])
+         | Set.null (cf_permits content) = (template "$1 implements $2" [cf_decl content, commaSep (Set.toList (cf_implements content))])
+         | otherwise = (template "$1 implements $2 permits $3" [cf_decl content, commaSep (Set.toList (cf_implements content)), commaSep (Set.toList (cf_permits content))])
 
 type CState a = State ClassFile a
 
@@ -250,6 +255,9 @@ preventImport name = do
 
 addImplements :: T.Text -> CState ()
 addImplements imp = modify (\cf->cf{cf_implements=Set.insert imp (cf_implements cf)})
+
+addPermits :: T.Text -> CState ()
+addPermits imp = modify (\cf->cf{cf_permits=Set.insert imp (cf_permits cf)})
 
 setDocString :: Code -> CState ()
 setDocString code = modify (\cf->cf{cf_docString=code})

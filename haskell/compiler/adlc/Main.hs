@@ -172,6 +172,7 @@ runJava args = do
       , runtimePackageOption (\s -> updateCodeGenProfile (\cgp -> cgp{J.cgp_runtimePackage=fromString s}))
       , javaGenerateParcelable (updateCodeGenProfile (\cgp->cgp{J.cgp_parcelable=True}))
       , javaHungarianNaming (updateCodeGenProfile (\cgp->cgp{J.cgp_hungarianNaming=True}))
+      , javaSealedUnions (updateCodeGenProfile (\cgp->cgp{J.cgp_sealedUnions=True}))
       , javaMaxLineLength (\s -> (updateCodeGenProfile (\cgp -> cgp{J.cgp_maxLineLength=read s})))
       , javaHeaderComment (\s -> (updateCodeGenProfile (\cgp -> cgp{J.cgp_header=T.pack s})))
       , javaSuppressWarningsAnnotation (\s -> (updateCodeGenProfile (\cgp -> cgp{J.cgp_supressWarnings=T.splitOn "," (T.pack s)})))
@@ -191,6 +192,11 @@ runJava args = do
       Option "" ["hungarian-naming"]
         (NoArg ufn)
         "Use hungarian naming conventions"
+
+    javaSealedUnions ufn =
+      Option "" ["sealed-unions"]
+        (NoArg ufn)
+        "Use sealed interfaces with permits (Java 17+) for unions"
 
     javaMaxLineLength ufn =
       Option "" ["max-line-length"]
