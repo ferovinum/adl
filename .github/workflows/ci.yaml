@@ -13,8 +13,7 @@ jobs:
       - name: Setup Stack
         uses: haskell/actions/setup@v2
         with:
-          ghc-version: '8.8.4' # Exact version of ghc to use
-          # cabal-version: 'latest'. Omitted, but defaults to 'latest'
+          ghc-version: '9.4.8'
           enable-stack: true
           stack-version: 'latest'
 
