@@ -948,11 +948,12 @@ genTypeExprMethod cgp moduleName decl = do
   typeRefI <- addImport (javaClass adlastPackage "TypeRef")
   scopedNameI <- addImport (javaClass adlastPackage "ScopedName")
   arrayListI <- addImport "java.util.ArrayList"
+  let constructor = if cgp_sealedUnions cgp then "new " <> typeRefI <> ".Reference"  else typeRefI <> ".reference"
   return $ coverride  (template "public $1 typeExpr()" [typeExprI])
     (  ctemplate "$1 scopedName = new $1(\"$2\", \"$3\");" [scopedNameI,formatText moduleName,className]
        <> ctemplate "$1<$2> params = new $1<>();" [arrayListI,typeExprI]
        <> (mconcat [ ctemplate "params.add(factory$1.typeExpr());" [tparam] | tparam <- getTypeParams (d_type decl)])
-       <> ctemplate "return new $1($2.reference(scopedName), params);" [typeExprI,typeRefI]
+       <> ctemplate "return new $1($2(scopedName), params);" [typeExprI, constructor]
     )
 
 isTypeToken :: FieldDetails -> Bool
