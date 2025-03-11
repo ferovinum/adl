@@ -1,0 +1,8 @@
+module adlc.config.python {
+
+/// ADL module or declaration annotation to control
+/// whether code is actually generated.
+
+type PythonGenerate = Bool;
+
+};
