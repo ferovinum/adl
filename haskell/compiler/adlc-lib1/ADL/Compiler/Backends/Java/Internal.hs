@@ -346,11 +346,13 @@ getTypeDetails rt@(RT_Named (scopedName,Decl{d_customType=Nothing})) = TypeDetai
     genLiteralText' (Literal te (LUnion ctor l)) = do
       sn <- genScopedName scopedName
       lit <- genLiteralText l
-      let ctorfn = unreserveWord ctor
+      cgp <- cf_codeProfile <$> get
+      let constructor_function = (if cgp_sealedUnions cgp then discriminatorNameSealed else unreserveWord) ctor
+      let prefix = (if cgp_sealedUnions cgp then "new " else "")
       case te of
        te | refEnumeration te -> return (template "$1.$2" [sn, discriminatorName0 ctor])
-          | isVoidLiteral l -> return (template "$1.$2()" [sn, ctorfn])
-          | otherwise -> return (template "$1.$2($3)" [sn, ctorfn, lit ])
+          | isVoidLiteral l -> return (template "$1$2.$3($4)" [prefix, sn, constructor_function, ""])
+          | otherwise -> return (template "$1$2.$3($4)" [prefix, sn, constructor_function, lit])
     genLiteralText' lit = error ("BUG: getTypeDetails1: unexpected literal:" ++ show lit)
 
 -- a custom type
@@ -380,7 +382,11 @@ getTypeDetails rt@(RT_Named (_,Decl{d_customType=Just customType})) = TypeDetail
     genLiteralText' (Literal te (LUnion ctor l)) = do
       idHelpers <- getHelpers customType
       lit <- genLiteralText l
-      return (template "$1.$2($3)" [idHelpers, ctor, lit ])
+      cgp <- cf_codeProfile <$> get
+      let constructor = if cgp_sealedUnions cgp
+                        then template "new $1.$2($3)" [idHelpers, capitalise ctor, lit]
+                        else template "$1.$2($3)" [idHelpers, ctor, lit]
+      return constructor
     genLiteralText' lit = error ("BUG: getTypeDetails2: unexpected literal:" ++ show lit)
 
 -- a type variable
@@ -910,6 +916,9 @@ discriminatorName0 = T.toUpper . unreserveWord
 
 discriminatorName :: FieldDetails -> Ident
 discriminatorName = discriminatorName0 . f_name . fd_field
+
+discriminatorNameSealed :: T.Text -> Ident
+discriminatorNameSealed = capitalise
 
 leadSpace :: T.Text -> T.Text
 leadSpace "" = ""

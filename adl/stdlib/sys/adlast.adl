@@ -90,7 +90,7 @@ type DeclVersions = Vector<Decl>;
 union Import
 {
     ModuleName moduleName;
-    ScopedName scopedName;
+    ScopedName scopedNameImport;
 };
 
 struct Module

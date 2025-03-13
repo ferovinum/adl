@@ -26,7 +26,7 @@ public class MaybeHelpers
         ScopedName scopedName = new ScopedName("sys.types", "Maybe");
         ArrayList<TypeExpr> params = new ArrayList<>();
         params.add(tFactory.typeExpr());
-        return new TypeExpr(TypeRef.reference(scopedName), params);
+        return new TypeExpr(new TypeRef.Reference(scopedName), params);
       }
 
       @Override
