@@ -423,7 +423,12 @@ generateCoreStruct codeProfile moduleName javaPackageFn decl struct =  gen
 data UnionType = AllVoids | NoVoids | Mixed
 
 generateUnion :: CodeGenProfile -> ModuleName -> JavaPackageFn -> CDecl -> Union CResolvedType -> ClassFile
-generateUnion codeProfile moduleName javaPackageFn decl union =  execState gen state0
+generateUnion codeProfile moduleName javaPackageFn decl union = case codeProfile of
+  CodeGenProfile { cgp_sealedUnions = True } -> generateSealedUnion codeProfile moduleName javaPackageFn decl union
+  _ -> generateLegacyUnion codeProfile moduleName javaPackageFn decl union
+
+generateLegacyUnion :: CodeGenProfile -> ModuleName -> JavaPackageFn -> CDecl -> Union CResolvedType -> ClassFile
+generateLegacyUnion codeProfile moduleName javaPackageFn decl union =  execState gen state0
   where
     className = unreserveWord (d_name decl)
     state0 = classFile codeProfile moduleName javaPackageFn classDecl
@@ -692,6 +697,143 @@ generateUnion codeProfile moduleName javaPackageFn decl union =  execState gen s
       when (cgp_parcelable codeProfile) $ do
         generateUnionParcelable codeProfile decl union fieldDetails
 
+generateSealedUnion :: CodeGenProfile -> ModuleName -> JavaPackageFn -> CDecl -> Union CResolvedType -> ClassFile
+generateSealedUnion codeProfile moduleName javaPackageFn decl union =  execState gen state0
+  where
+    className = unreserveWord (d_name decl)
+    state0 = classFile codeProfile moduleName javaPackageFn classDecl
+    classDecl = "public sealed interface " <> className <> typeArgs
+    isGeneric = length (u_typeParams union) > 0
+    typeArgs = case u_typeParams union of
+      [] -> ""
+      args -> "<" <> commaSep (map unreserveWord args) <> ">"
+    typecast fd from =
+      if needsSuppressedCheckInCast (f_type (fd_field fd))
+        then template "$1.<$2>cast($3)" [className,fd_boxedTypeExprStr fd,from]
+        else template "($1) $2" [fd_boxedTypeExprStr fd,from]
+
+    unionType
+      | and voidTypes = AllVoids
+      | or voidTypes = Mixed
+      | otherwise = NoVoids
+      where
+          voidTypes = [isVoidType (f_type f) | f <- u_fields union]
+
+    gen = do
+      addImport (javaClass (javaPackageFn moduleName) className)
+
+      setDocString (generateDocString (d_annotations decl))
+      fieldDetails <- mapM genFieldDetails (u_fields union)
+      fieldDetail0 <- case fieldDetails of
+        [] -> error "BUG: unions with no fields are illegal"
+        (fd:_) -> return fd
+
+      for_ fieldDetails (preventImport . fd_memberVarName)
+      for_ fieldDetails (preventImport . fd_varName)
+
+      objectsClass <- addImport "java.util.Objects"
+      
+      -- constructors
+      addMethod (cline "/* Constructors */")
+
+      for_ fieldDetails $ \fd -> do
+        let constructor = cblock (template "public record $1$2($3) implements $4$2" [recordName fd, typeArgs, arg fd, className]) cempty
+        addMethod constructor
+        addPermits (className <> "." <> recordName fd)
+
+      -- cast helper
+      -- let needCastHelper = (or [needsSuppressedCheckInCast (f_type (fd_field fd))| fd <- fieldDetails])
+      -- when needCastHelper $ addMethod (
+      --   cline "@SuppressWarnings(\"unchecked\")"
+      --   <>
+      --   cblock "private static <T> T cast(final Object o)" (
+      --     cline "return (T) o;"
+      --     )
+      --   )
+
+      -- factory
+      factoryInterface <- addImport (javaClass (cgp_runtimePackage codeProfile) "Factory")
+      typeExprMethodCode <- genTypeExprMethod codeProfile moduleName decl
+
+      let factory =
+            cblock1 (template "public static final $2<$1> FACTORY = new $2<$1>()" [className,factoryInterface]) (
+              coverride (template "public $1 create($1 other)" [className]) (
+                 cblock1 "return switch (other)" (
+                    mconcat [
+                      ctemplate "case $1($2) ->" [recordName fd, arg fd]
+                      <>
+                      indent (
+                        ctemplate "new $1($2);"
+                          [recordName fd, val fd]
+                        )
+                      | fd <- fieldDetails]
+                    )
+              )
+              <>
+              cline ""
+              <>
+              typeExprMethodCode
+              <>
+              cline ""
+              <>
+              coverride (template "public JsonBinding<$1> jsonBinding()" [className]) (
+                ctemplate "return $1.jsonBinding();" [className]
+              )
+            )
+
+      let factoryg lazyC =
+            cblock (template "public static$2 $3<$1$2> factory($4)" [className,leadSpace typeArgs,factoryInterface,factoryArgs]) (
+              cblock1 (template "return new Factory<$1$2>()" [className,typeArgs]) (
+                mconcat [ctemplate "final $1<Factory<$2>> $3 = new $1<>(() -> $4);"
+                                   [lazyC,fd_boxedTypeExprStr fd,fd_varName fd,fd_factoryExprStr fd] | fd <- fieldDetails]
+                <>
+                cline ""
+                <>
+                cline ""
+                <>
+                coverride (template "public $1$2 create($1$2 other)" [className,typeArgs]) (
+                  cblock1 "return switch (other)" (
+                    mconcat [
+                      ctemplate "case $1($2) ->" [recordName fd, arg fd]
+                      <>
+                      indent (
+                        ctemplate "new $1($2);"
+                          [recordName fd, val fd]
+                        )
+                      | fd <- fieldDetails]
+                    )
+                  )
+                  <>
+                  cline ""
+                  <>
+                  typeExprMethodCode
+                  <> 
+                  cline ""
+                  <>
+                  coverride (template "public JsonBinding<$1$2> jsonBinding()" [className,typeArgs]) (
+                    ctemplate "return $1.jsonBinding($2);" [className,jsonBindingArgs]
+                  )
+                )
+              )
+
+          factoryArgs = commaSep [template "Factory<$1> $2" [arg,factoryTypeArg arg] | arg <- u_typeParams union]
+          jsonBindingArgs = commaSep [template "$1.jsonBinding()" [factoryTypeArg arg] | arg <- u_typeParams union]
+
+      addMethod (cline "/* Factory for construction of generic values */")
+      if isGeneric
+        then do
+          lazyC <- addImport (javaClass (cgp_runtimePackage codeProfile) "Lazy")
+          addMethod (factoryg lazyC)
+        else do
+          addMethod factory
+
+      -- Json
+      generateSealedUnionJson codeProfile decl union fieldDetails
+
+      -- Parcelable
+      -- when (cgp_parcelable codeProfile) $ do
+      --   generateUnionParcelable codeProfile decl union fieldDetails
+
 generateEnum :: CodeGenProfile -> ModuleName -> JavaPackageFn -> CDecl -> Union CResolvedType -> ClassFile
 generateEnum codeProfile moduleName javaPackageFn decl union = execState gen state0
   where
@@ -806,11 +948,12 @@ genTypeExprMethod cgp moduleName decl = do
   typeRefI <- addImport (javaClass adlastPackage "TypeRef")
   scopedNameI <- addImport (javaClass adlastPackage "ScopedName")
   arrayListI <- addImport "java.util.ArrayList"
+  let constructor = if cgp_sealedUnions cgp then "new " <> typeRefI <> ".Reference"  else typeRefI <> ".reference"
   return $ coverride  (template "public $1 typeExpr()" [typeExprI])
     (  ctemplate "$1 scopedName = new $1(\"$2\", \"$3\");" [scopedNameI,formatText moduleName,className]
        <> ctemplate "$1<$2> params = new $1<>();" [arrayListI,typeExprI]
        <> (mconcat [ ctemplate "params.add(factory$1.typeExpr());" [tparam] | tparam <- getTypeParams (d_type decl)])
-       <> ctemplate "return new $1($2.reference(scopedName), params);" [typeExprI,typeRefI]
+       <> ctemplate "return new $1($2(scopedName), params);" [typeExprI, constructor]
     )
 
 isTypeToken :: FieldDetails -> Bool

@@ -256,13 +256,13 @@ public class Factories {
   }
 
   private static TypeExpr primTypeExpr(String primitive) {
-    return new TypeExpr(TypeRef.primitive(primitive), new ArrayList<>());
+    return new TypeExpr(new TypeRef.Primitive(primitive), new ArrayList<>());
   }
 
   private static TypeExpr primTypeExpr(String primitive, TypeExpr param1) {
     ArrayList<TypeExpr> params = new ArrayList<>();
     params.add(param1);
-    return new TypeExpr(TypeRef.primitive(primitive), params);
+    return new TypeExpr(new TypeRef.Primitive(primitive), params);
   }
 
 };

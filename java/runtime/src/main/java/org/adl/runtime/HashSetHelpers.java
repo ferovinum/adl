@@ -30,7 +30,7 @@ public class HashSetHelpers
         ScopedName scopedName = new ScopedName("sys.types", "Set");
         ArrayList<TypeExpr> params = new ArrayList<>();
         params.add(valueFactory.typeExpr());
-        return new TypeExpr(TypeRef.reference(scopedName), params);
+        return new TypeExpr(new TypeRef.Reference(scopedName), params);
       }
 
       @Override

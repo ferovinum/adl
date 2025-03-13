@@ -33,7 +33,7 @@ public class HashMapHelpers
         ArrayList<TypeExpr> params = new ArrayList<>();
         params.add(keyFactory.typeExpr());
         params.add(valueFactory.typeExpr());
-        return new TypeExpr(TypeRef.reference(scopedName), params);
+        return new TypeExpr(new TypeRef.Reference(scopedName), params);
       }
 
       @Override
