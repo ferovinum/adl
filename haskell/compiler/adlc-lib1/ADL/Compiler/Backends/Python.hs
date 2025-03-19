@@ -14,6 +14,7 @@ import ADL.Compiler.Backends.Python.Internal
 import ADL.Compiler.DataFiles
 import ADL.Compiler.EIO
 import ADL.Compiler.Processing
+import ADL.Compiler.Primitive
 import ADL.Compiler.Utils
 import ADL.Utils.FileDiff
 import ADL.Utils.Format
@@ -73,8 +74,10 @@ genModule m = do
 genNewtype :: CModule -> CDecl -> Newtype CResolvedType -> CState ()
 genNewtype  m decl ntype@Newtype{n_typeParams=typeParams} = do
   typeExprOutput <- genTypeExpr (n_typeExpr ntype)
-  -- let typeParams = prefixUnusedTypeParams (isTypeParamUsedInTypeExpr (n_typeExpr ntype)) typeParams0
-  let classTypes = [template "pydantic.RootModel[$1]" [typeExprOutput]] ++ (if null typeParams then [] else [template "typing.Generic$1" [typeParamsExpr typeParams]])
+  let rootModelTypeDecl = case n_typeExpr ntype of
+        TypeExpr (RT_Named _) _ -> template "\"\"$1\"\"" [typeExprOutput]
+        _ -> typeExprOutput
+  let classTypes = template "pydantic.RootModel[$1]" [rootModelTypeDecl] : (if null typeParams then [] else [template "typing.Generic$1" [typeParamsExpr typeParams]])
   let typeDecl = pyblock (template "class $1($2):" [d_name decl, T.intercalate ", " classTypes]) (cline "pass")
   addDeclaration (renderCommentForDeclaration decl <> typeDecl)
 
