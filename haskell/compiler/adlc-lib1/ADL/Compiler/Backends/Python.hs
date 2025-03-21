@@ -8,6 +8,10 @@ module ADL.Compiler.Backends.Python(
 
 import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text as T
+import qualified Data.Map as Map
+import qualified Data.Aeson as JSON
+import qualified Data.Aeson.KeyMap as KM
+import qualified Data.Aeson.Key as Key
 
 import ADL.Compiler.AST
 import ADL.Compiler.Backends.Python.Internal
@@ -77,7 +81,7 @@ genNewtype  m decl ntype@Newtype{n_typeParams=typeParams} = do
   let rootModelTypeDecl = case n_typeExpr ntype of
         TypeExpr (RT_Named _) _ -> template "\"\"$1\"\"" [typeExprOutput]
         _ -> typeExprOutput
-  let classTypes = template "pydantic.RootModel[$1]" [rootModelTypeDecl] : (if null typeParams then [] else [template "typing.Generic$1" [typeParamsExpr typeParams]])
+  let classTypes = rootModelTypeDecl : (if null typeParams then [] else [template "typing.Generic$1" [typeParamsExpr typeParams]])
   let typeDecl = pyblock (template "class $1($2):" [d_name decl, T.intercalate ", " classTypes]) (cline "pass")
   addDeclaration (renderCommentForDeclaration decl <> typeDecl)
 
@@ -94,8 +98,56 @@ genTypedef m decl typedef@Typedef{t_typeParams=typeParams0} = do
   typeExprOutput <- genTypeExpr (t_typeExpr typedef)
   let typeParams = prefixUnusedTypeParams (isTypeParamUsedInTypeExpr (t_typeExpr typedef)) typeParams0
   let renderedTypes = if null typeParams then "" else typeParamsExpr typeParams
-  let typeDecl = ctemplate "type $1$2 = $3" [d_name decl, renderedTypes, typeExprOutput]
-  addDeclaration (renderCommentForDeclaration decl <> typeDecl)
+  -- Check for ValidRegex annotation
+  let validRegexSN = ScopedName (ModuleName ["sys", "annotations"]) "ValidRegex"
+      maybeValidRegex = Map.lookup validRegexSN (d_annotations decl)
+      
+      -- Also check for ValidRegex in the same module
+      moduleValidRegexSN = ScopedName (m_name m) "ValidRegex"
+      maybeModuleValidRegex = Map.lookup moduleValidRegexSN (d_annotations decl)
+      
+      -- Check if ValidRegex matches expected format
+      isValidRegexFormat obj = case (lookupObjectText "regex" obj, lookupObjectText "description" obj) of
+        (Just _, Just _) -> True
+        _ -> False
+  
+  case (maybeValidRegex, maybeModuleValidRegex) of
+    (Just (_, JSON.Object obj), _) | isValidRegexFormat obj -> do
+      let Just regex = lookupObjectText "regex" obj
+          Just desc = lookupObjectText "description" obj
+      let annotatedType = template "typing.Annotated[$1, pydantic.StringConstraints(pattern=r$2), $3]" 
+            [typeExprOutput, escapeRegexForPython regex, template "\"$1\"" [desc]]
+      let typeDecl = ctemplate "$1$2: typing.TypeAlias = $3" [d_name decl, renderedTypes, annotatedType]
+      addDeclaration (renderCommentForDeclaration decl <> typeDecl)
+    
+    (_, Just (_, JSON.Object obj)) | isValidRegexFormat obj -> do
+      let Just regex = lookupObjectText "regex" obj
+          Just desc = lookupObjectText "description" obj
+      let annotatedType = template "typing.Annotated[$1, pydantic.StringConstraints(pattern=r$2), $3]" 
+            [typeExprOutput, escapeRegexForPython regex, template "\"$1\"" [desc]]
+      let typeDecl = ctemplate "$1$2: typing.TypeAlias = $3" [d_name decl, renderedTypes, annotatedType]
+      addDeclaration (renderCommentForDeclaration decl <> typeDecl)
+    
+    _ -> addSimpleTypeAlias typeParams renderedTypes typeExprOutput
+  where
+    addSimpleTypeAlias typeParams renderedTypes typeExprOutput = do
+      let typeDecl = ctemplate "$1$2: typing.TypeAlias = $3" [d_name decl, renderedTypes, typeExprOutput]
+      addDeclaration (renderCommentForDeclaration decl <> typeDecl)
+    
+    -- Helper to extract text values from JSON.Object
+    lookupObjectText :: T.Text -> KM.KeyMap JSON.Value -> Maybe T.Text
+    lookupObjectText key obj = case KM.lookup (Key.fromText key) obj of
+      Just (JSON.String s) -> Just s
+      _ -> Nothing
+    
+    -- Ensure regex is properly escaped for Python raw strings
+    escapeRegexForPython :: T.Text -> T.Text
+    escapeRegexForPython regex = 
+      -- Use triple quotes if the regex contains both single and double quotes
+      if T.any (== '\"') regex && T.any (== '\'') regex
+        then template "\"\"\"$1\"\"\"" [regex]
+        -- Otherwise use a regular raw string with double quotes
+        else template "\"$1\"" [regex]
 
 genUnion :: CModule -> CDecl -> Union CResolvedType -> CState ()
 genUnion  m decl union@Union{u_typeParams=parameters} = do
