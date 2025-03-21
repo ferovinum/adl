@@ -309,7 +309,7 @@ getTypeDetails (RT_Primitive pt) =
         typeExpr _ = error "BUG: expected a single type param for StringMap"
         literalText (Literal _ (LStringMap m)) = do
           m' <- traverse genLiteralText m
-          return (template "{$1}" [T.intercalate ", " [ template "\"$1\": $2" [doubleQuote k,v] | (k,v) <- M.toList m']])
+          return (template "{$1}" [T.intercalate ", " [ template "$1: $2" [doubleQuote k,v] | (k,v) <- M.toList m']])
         literalText _ = error "BUG: invalid literal for StringMap"
 
     nullableTypeDetails = TypeDetails typeExpr literalText
