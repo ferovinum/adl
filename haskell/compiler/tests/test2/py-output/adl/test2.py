@@ -38,4 +38,4 @@ class Tree(pydantic.BaseModel, typing.Generic[T]):
   value: T
   children: list["Tree[T]"]
 
-type IntTree = "Tree[int]"
+IntTree: typing.TypeAlias = "Tree[int]"

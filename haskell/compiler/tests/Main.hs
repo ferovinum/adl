@@ -478,6 +478,19 @@ runTests = do
     it "generates expected output for various structures" $
       collectResults (runPyBackend [stdsrc] ["test2/input/test.adl"] "test2/py-output" "test2::adl")
         `shouldReturn` MatchOutput
+    it "generates expected code for the standard library" $ do
+      let srcs = stdfiles <> ["test6/input/test.adl"]
+      collectResults (runPyBackend [stdsrc] srcs "test6/py-output" "test6::adl")
+          `shouldReturn` MatchOutput
+    it "generates correct keys for stringmap literals" $ do
+      collectResults (runPyBackend [stdsrc] ["test29/input/test29.adl"] "test29/py-output" "test29::adl")
+        `shouldReturn` MatchOutput
+    it "generates expected output for string type ValidRegex annotations" $
+      collectResults (runPyBackend [stdsrc] ["test30/input/test30.adl"] "test30/py-output" "test30::adl")
+        `shouldReturn` MatchOutput
+    it "generates expected output for ValidRegex annotations with various regex patterns" $
+      collectResults (runPyBackend [stdsrc] ["test31/input/test31.adl"] "test31/py-output" "test31::adl")
+        `shouldReturn` MatchOutput
 
   where
     collectResults1 resultvar test = do
