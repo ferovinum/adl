@@ -13,6 +13,7 @@ build-type:          Simple
 data-files:           lib/adl/adlc/config/cpp.adl
                     , lib/adl/adlc/config/haskell.adl
                     , lib/adl/adlc/config/java.adl
+                    , lib/adl/adlc/config/python.adl
                     , lib/adl/adlc/config/rust.adl
                     , lib/adl/adlc/config/typescript.adl
                     , lib/adl/sys/adlast.adl
@@ -177,6 +178,7 @@ library
                     , ADL.Adlc.Config.Cpp
                     , ADL.Adlc.Config.Haskell
                     , ADL.Adlc.Config.Java
+                    , ADL.Adlc.Config.Python
                     , ADL.Adlc.Config.Rust
                     , HaskellCustomTypes
                     , Paths_adl_compiler
