@@ -1,0 +1,38 @@
+module adlc.config.python {
+
+/// ADL module annotation to specify a target python package.
+type PythonPackage = String;
+
+/// ADL module or declaration annotation to control
+/// whether code is actually generated.
+type PythonGenerate = Bool;
+
+/// ADL declaration annotation to specify that a custom type
+/// should be used
+struct PythonCustomType
+{
+    // The fully scoped python name of the type to be used
+    String pyname;
+
+    // The fully scoped name of the module containing
+    // helper code.
+    String helpers;
+
+    // If true, we still generate the standard ADL derived
+    // class (even though no generated code will refer to it)
+    Bool generateType = false;
+};
+
+/// ADL declaration annotation to specify that a custom type
+/// should be used for database operations
+struct PythonDbCustomType
+{
+    // The python type to use for database representation
+    String pyDbType;
+
+    // The fully scoped name of the module containing
+    // helper code.
+    String helpers;
+};
+
+};

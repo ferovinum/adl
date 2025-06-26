@@ -1,0 +1,63 @@
+module test31
+{
+
+// ValidRegex definition
+struct ValidRegex {
+  /// The regular expression pattern that validates the string
+  String regex;
+
+  /// A short description of what the pattern validates
+  String description;
+};
+
+// Various string types with ValidRegex annotations
+
+/// A URL string that must be valid
+type Url = String;
+
+annotation Url ValidRegex {
+  "regex" : "^(https?|ftp)://[^\\s/$.?#].[^\\s]*$",
+  "description" : "a valid URL"
+};
+
+/// A date in YYYY-MM-DD format
+type IsoDate = String;
+
+annotation IsoDate ValidRegex {
+  "regex" : "^\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])$",
+  "description" : "date in YYYY-MM-DD format"
+};
+
+/// A phone number in international format
+type PhoneNumber = String;
+
+annotation PhoneNumber ValidRegex {
+  "regex" : "^\\+[1-9]\\d{1,14}$",
+  "description" : "international phone number"
+};
+
+/// A simple IP address (v4) validator
+type IPv4Address = String;
+
+annotation IPv4Address ValidRegex {
+  "regex" : "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$",
+  "description" : "IPv4 address"
+};
+
+/// A username (alphanumeric with underscore, 3-16 chars)
+type Username = String;
+
+annotation Username ValidRegex {
+  "regex" : "^[a-zA-Z0-9_]{3,16}$",
+  "description" : "alphanumeric username with underscore, 3-16 chars"
+};
+
+/// A string with complex regex with escaping and quotes
+type ComplexPattern = String;
+
+annotation ComplexPattern ValidRegex {
+  "regex" : "^[a-z0-9]([a-z0-9\\-\\.\"']*[a-z0-9])?$",
+  "description" : "string with special characters including quotes"
+};
+
+}; 

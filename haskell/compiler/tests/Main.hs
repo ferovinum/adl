@@ -27,6 +27,7 @@ import qualified ADL.Compiler.Backends.Java as J
 import qualified ADL.Compiler.Backends.Javascript as JS
 import qualified ADL.Compiler.Backends.Typescript as TS
 import qualified ADL.Compiler.Backends.Rust as RS
+import qualified ADL.Compiler.Backends.Python as PY
 
 data CodeGenResult = MatchOutput
                    | CompilerFailed T.Text
@@ -183,6 +184,20 @@ runRsBackend ipaths mpaths epath rsModule = do
       }
       fileWriter = writeOutputFile (OutputArgs (\_ -> return ()) False tempDir Nothing)
   er <- unEIO $ RS.generate af js fileWriter mpaths
+  processCompilerOutput epath tempDir er
+
+runPyBackend :: [FilePath] -> [FilePath] -> FilePath -> T.Text -> IO CodeGenResult
+runPyBackend ipaths mpaths epath rsModule = do
+  tdir <- getTemporaryDirectory
+  tempDir <- createTempDirectory tdir "adlt.test."
+  let af = defaultAdlFlags{af_searchPath=ipaths,af_mergeFileExtensions=["adl-python"]}
+      pf = PY.PythonFlags {
+        PY.pfCodeGenProfile = PY.defaultCodeGenProfile,
+        PY.pfPackageName = "adl",
+        PY.pfModuleNameNormalisation = []
+      }
+      fileWriter = writeOutputFile (OutputArgs (\_ -> return ()) False tempDir Nothing)
+  er <- unEIO $ PY.generate af pf fileWriter mpaths
   processCompilerOutput epath tempDir er
 
 stdsrc :: FilePath
@@ -459,6 +474,24 @@ runTests = do
       collectResults (runRsBackend [stdsrc] ["test29/input/test29.adl"] "test29/rs-output" "test29::adl")
         `shouldReturn` MatchOutput
  
+  describe "adlc python backend" $ do
+    it "generates expected output for various structures" $
+      collectResults (runPyBackend [stdsrc] ["test2/input/test.adl"] "test2/py-output" "test2::adl")
+        `shouldReturn` MatchOutput
+    it "generates expected code for the standard library" $ do
+      let srcs = stdfiles <> ["test6/input/test.adl"]
+      collectResults (runPyBackend [stdsrc] srcs "test6/py-output" "test6::adl")
+          `shouldReturn` MatchOutput
+    it "generates correct keys for stringmap literals" $ do
+      collectResults (runPyBackend [stdsrc] ["test29/input/test29.adl"] "test29/py-output" "test29::adl")
+        `shouldReturn` MatchOutput
+    it "generates expected output for string type ValidRegex annotations" $
+      collectResults (runPyBackend [stdsrc] ["test30/input/test30.adl"] "test30/py-output" "test30::adl")
+        `shouldReturn` MatchOutput
+    it "generates expected output for ValidRegex annotations with various regex patterns" $
+      collectResults (runPyBackend [stdsrc] ["test31/input/test31.adl"] "test31/py-output" "test31::adl")
+        `shouldReturn` MatchOutput
+
   where
     collectResults1 resultvar test = do
       r <- test

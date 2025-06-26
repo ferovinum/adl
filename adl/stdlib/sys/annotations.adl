@@ -19,4 +19,18 @@ struct SerializedWithInternalTag {
 
 type CustomSerialization = Bool;
 
+/// An field/type alias annotation to constrain the
+/// values allowed by a string to a regular expression
+struct ValidRegex {
+  /// The regexp that must be matched
+  String regex;
+
+  /// A (short) user readable string describing the
+  /// expected text.
+  String description;
+
+  /// The regex group index to return if matches
+  /// 0 is the entire string
+  Int8 returnGroup = 0;
+};
 };
