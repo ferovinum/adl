@@ -26,6 +26,9 @@ instance Monoid Code where
   mempty = CEmpty
   mappend = (S.<>) -- redundant from ghc 8.4
 
+cempty :: Code
+cempty = CEmpty
+
 cline :: T.Text -> Code
 cline t = CLine t
 

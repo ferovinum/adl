@@ -34,6 +34,7 @@ import ADL.Compiler.Primitive
 import ADL.Utils.IndentedCode
 import ADL.Core.Value
 import ADL.Utils.Format
+import qualified Data.Text as T
 
 data JavaFlags = JavaFlags {
   jf_libDir :: FilePath,
@@ -138,6 +139,7 @@ data CodeGenProfile = CodeGenProfile {
   cgp_hungarianNaming :: Bool,
   cgp_publicMembers :: Bool,
   cgp_genericFactories :: Bool,
+  cgp_sealedUnions :: Bool,
   cgp_builder :: Bool,
   cgp_parcelable :: Bool,
   cgp_runtimePackage :: JavaPackage,
@@ -151,6 +153,7 @@ defaultCodeGenProfile = CodeGenProfile {
   cgp_hungarianNaming = False,
   cgp_publicMembers = False,
   cgp_genericFactories = False,
+  cgp_sealedUnions = False,
   cgp_builder = True,
   cgp_parcelable = False,
   cgp_runtimePackage = defaultRuntimePackage,
@@ -166,6 +169,7 @@ data ClassFile = ClassFile {
    cf_javaPackageFn :: ModuleName -> JavaPackage,
    cf_imports :: Map.Map Ident (Maybe JavaPackage),
    cf_implements :: Set.Set T.Text,
+   cf_permits :: Set.Set T.Text,
    cf_docString :: Code,
    cf_decl :: T.Text,
    cf_fields :: [Code],
@@ -173,7 +177,7 @@ data ClassFile = ClassFile {
 }
 
 classFile :: CodeGenProfile -> ModuleName -> (ModuleName -> JavaPackage) -> T.Text -> ClassFile
-classFile codeProfile mname javaPackageFn decl = ClassFile codeProfile mname javaPackageFn Map.empty Set.empty mempty decl [] []
+classFile codeProfile mname javaPackageFn decl = ClassFile codeProfile mname javaPackageFn Map.empty Set.empty Set.empty mempty decl [] []
 
 cf_package :: ClassFile -> JavaPackage
 cf_package  cf = cf_javaPackageFn cf (cf_module cf)
@@ -219,8 +223,10 @@ classFileCode content =
     javaPackage = cf_package content
     imports = [javaClass package name | (name,Just package) <- Map.toList (cf_imports content), package /= javaPackage]
     header = cgp_header (cf_codeProfile content)
-    decl | Set.null (cf_implements content) = (template "$1" [cf_decl content])
-         | otherwise = (template "$1 implements $2" [cf_decl content,commaSep (Set.toList (cf_implements content))])
+    decl | Set.null (cf_implements content) && Set.null (cf_permits content) = (template "$1" [cf_decl content])
+         | Set.null (cf_implements content) = (template "$1 permits $2" [cf_decl content, commaSep (Set.toList (cf_permits content))])
+         | Set.null (cf_permits content) = (template "$1 implements $2" [cf_decl content, commaSep (Set.toList (cf_implements content))])
+         | otherwise = (template "$1 implements $2 permits $3" [cf_decl content, commaSep (Set.toList (cf_implements content)), commaSep (Set.toList (cf_permits content))])
 
 type CState a = State ClassFile a
 
@@ -250,6 +256,9 @@ preventImport name = do
 
 addImplements :: T.Text -> CState ()
 addImplements imp = modify (\cf->cf{cf_implements=Set.insert imp (cf_implements cf)})
+
+addPermits :: T.Text -> CState ()
+addPermits imp = modify (\cf->cf{cf_permits=Set.insert imp (cf_permits cf)})
 
 setDocString :: Code -> CState ()
 setDocString code = modify (\cf->cf{cf_docString=code})
@@ -337,11 +346,13 @@ getTypeDetails rt@(RT_Named (scopedName,Decl{d_customType=Nothing})) = TypeDetai
     genLiteralText' (Literal te (LUnion ctor l)) = do
       sn <- genScopedName scopedName
       lit <- genLiteralText l
-      let ctorfn = unreserveWord ctor
+      cgp <- cf_codeProfile <$> get
+      let constructor_function = (if cgp_sealedUnions cgp then discriminatorNameSealed else unreserveWord) ctor
+      let prefix = (if cgp_sealedUnions cgp then "new " else "")
       case te of
        te | refEnumeration te -> return (template "$1.$2" [sn, discriminatorName0 ctor])
-          | isVoidLiteral l -> return (template "$1.$2()" [sn, ctorfn])
-          | otherwise -> return (template "$1.$2($3)" [sn, ctorfn, lit ])
+          | isVoidLiteral l -> return (template "$1$2.$3($4)" [prefix, sn, constructor_function, ""])
+          | otherwise -> return (template "$1$2.$3($4)" [prefix, sn, constructor_function, lit])
     genLiteralText' lit = error ("BUG: getTypeDetails1: unexpected literal:" ++ show lit)
 
 -- a custom type
@@ -371,7 +382,11 @@ getTypeDetails rt@(RT_Named (_,Decl{d_customType=Just customType})) = TypeDetail
     genLiteralText' (Literal te (LUnion ctor l)) = do
       idHelpers <- getHelpers customType
       lit <- genLiteralText l
-      return (template "$1.$2($3)" [idHelpers, ctor, lit ])
+      cgp <- cf_codeProfile <$> get
+      let constructor = if cgp_sealedUnions cgp
+                        then template "new $1.$2($3)" [idHelpers, capitalise ctor, lit]
+                        else template "$1.$2($3)" [idHelpers, ctor, lit]
+      return constructor
     genLiteralText' lit = error ("BUG: getTypeDetails2: unexpected literal:" ++ show lit)
 
 -- a type variable
@@ -902,6 +917,9 @@ discriminatorName0 = T.toUpper . unreserveWord
 discriminatorName :: FieldDetails -> Ident
 discriminatorName = discriminatorName0 . f_name . fd_field
 
+discriminatorNameSealed :: T.Text -> Ident
+discriminatorNameSealed = capitalise
+
 leadSpace :: T.Text -> T.Text
 leadSpace "" = ""
 leadSpace t = " " <> t
@@ -1137,6 +1155,118 @@ generateUnionJson cgp decl union fieldDetails = do
                             ctemplate "return $1.$2$3($4.unionValueFromItJson(\"$5\", _json, $6.get()));" [className0,typeArgs,fd_unionCtorName fd, jsonBindingsI, tag, fd_varName fd]
                           _ ->
                             ctemplate "return $1.$2$3($4.unionValueFromJson(_json, $5.get()));" [className0,typeArgs,fd_unionCtorName fd, jsonBindingsI, fd_varName fd]
+                        | fd <- fieldDetails]
+                  in ctemplate "if (_key.equals(\"$1\")) {" [fd_serializedName (head fieldDetails)]
+                       <>
+                       indent (head returnStatements)
+                       <>
+                       mconcat [
+                         cline "}"
+                         <>
+                         ctemplate "else if (_key.equals(\"$1\")) {" [fd_serializedName fd]
+                         <>
+                         indent returnCase
+                         | (fd,returnCase) <- zip (tail fieldDetails) (tail returnStatements)]
+                       <>
+                       cline "}"
+                  <>
+                  ctemplate "throw new $1(\"Invalid discriminator \" + _key + \" for union $2\");" [jsonParseExceptionI,className]
+                  )
+                )
+              )
+
+  addMethod (cline "/* Json serialization */")
+  addMethod factory
+
+recordName :: FieldDetails -> Ident
+recordName = capitalise . f_name .fd_field
+
+arg :: FieldDetails -> T.Text
+arg fd = if (isVoidType . f_type . fd_field) fd then "" else fd_typeExprStr fd <> " val"
+
+val :: FieldDetails -> T.Text
+val fd = if (isVoidType . f_type . fd_field) fd then "" else "val"
+
+generateSealedUnionJson :: CodeGenProfile -> CDecl -> Union CResolvedType -> [FieldDetails] -> CState ()
+generateSealedUnionJson cgp decl union fieldDetails = do
+  let typeArgs = case u_typeParams union of
+        [] -> ""
+        args -> "<" <> commaSep (map unreserveWord args) <> ">"
+      className0 = unreserveWord (d_name decl)
+      className = className0 <> typeArgs
+
+  factoryI <- addImport (javaClass (cgp_runtimePackage cgp) "Factory")
+  lazyC <- addImport (javaClass (cgp_runtimePackage cgp) "Lazy")
+  jsonBindingI <- addImport (javaClass (cgp_runtimePackage cgp) "JsonBinding")
+  jsonBindingsI <- addImport (javaClass (cgp_runtimePackage cgp) "JsonBindings")
+  jsonElementI <- addImport "com.google.gson.JsonElement"
+  jsonParseExceptionI <- addImport (javaClass (cgp_runtimePackage cgp) "JsonParseException")
+  jsonBindings <- mapM (genJsonBindingExpr cgp . f_type . fd_field) fieldDetails
+  let isInternallyTagged = getSerializedWithInternalTag (d_annotations decl)
+  let bindingArgs = commaSep [template "$1<$2> $3" [jsonBindingI,arg,"binding" <> arg] | arg <- u_typeParams union]
+
+  let factory =
+        cblock (template "public static$1 $2<$3> jsonBinding($4)" [typeArgs,jsonBindingI,className,bindingArgs]) (
+              clineN
+                [ template "final $1<$2<$3>> $4 = new $1<>(() -> $5);" [lazyC,jsonBindingI,fd_boxedTypeExprStr fd,fd_varName fd,binding]
+                | (fd,binding) <- zip fieldDetails jsonBindings]
+              <>
+              clineN
+                [ template "final $1<$2> factory$2 = binding$2.factory();" [factoryI,typeParam]
+                | typeParam <- u_typeParams union]
+              <>
+              case u_typeParams union of
+                [] -> ctemplate "final $1<$2> _factory = FACTORY;" [factoryI,className]
+                tparams -> ctemplate "final $1<$2> _factory = factory($3);" [factoryI,className,commaSep [template "binding$1.factory()" [i] | i <-tparams ]]
+              <>
+              cline ""
+              <>
+              cblock1 (template "return new $1<$2>()" [jsonBindingI,className]) (
+                coverride (template "public $1<$2> factory()" [factoryI,className]) (
+                  cline "return _factory;"
+                  )
+                <>
+                cline ""
+                <>
+                coverride (template "public $1 toJson($2 _val)" [jsonElementI,className]) (
+                  cblock1 "return switch (_val)" (
+                    mconcat [
+                       ctemplate "case $1($2) ->" [recordName fd, arg fd]
+                       <>
+                       indent (
+                         if isVoidType (f_type (fd_field fd))
+                         then ctemplate "$1.unionToJson(\"$2\", null, null);"
+                                        [jsonBindingsI, fd_serializedName fd]
+                         else case isInternallyTagged of
+                           (Just tag) ->
+                             ctemplate "$1.unionToItJson(\"$2\", \"$3\", val.$4, $5.get());"
+                                        [jsonBindingsI, tag, fd_serializedName fd, fd_accessExpr fd, fd_varName fd]
+                           _ ->
+                             ctemplate "$1.unionToJson(\"$2\", val, $4.get());"
+                                        [jsonBindingsI, fd_serializedName fd, fd_accessExpr fd, fd_varName fd]
+                       )
+                       | fd <- fieldDetails ]
+                    
+                  )
+                  )
+                <>
+                cline ""
+                <>
+                coverride (template "public $1 fromJson($2 _json)" [className,jsonElementI]) (
+                  case isInternallyTagged of
+                    (Just tag) -> 
+                      ctemplate "String _key = $1.unionNameFromItJson(\"$2\", _json);" [jsonBindingsI, tag]
+                    _ ->
+                      ctemplate "String _key = $1.unionNameFromJson(_json);" [jsonBindingsI]
+                  <>
+                  let returnStatements = [
+                        if isVoidType (f_type (fd_field fd))
+                        then ctemplate "return new $3();" [className0,typeArgs,recordName fd]
+                        else case isInternallyTagged of
+                          (Just tag) ->
+                            ctemplate "return new $3($4.unionValueFromItJson(\"$5\", _json, $6.get()));" [className0,typeArgs,recordName fd, jsonBindingsI, tag, fd_varName fd]
+                          _ ->
+                            ctemplate "return new $3($4.unionValueFromJson(_json, $5.get()));" [className0,typeArgs,recordName fd, jsonBindingsI, fd_varName fd]
                         | fd <- fieldDetails]
                   in ctemplate "if (_key.equals(\"$1\")) {" [fd_serializedName (head fieldDetails)]
                        <>

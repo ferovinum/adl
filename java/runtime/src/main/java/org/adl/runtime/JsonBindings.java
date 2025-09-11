@@ -317,7 +317,7 @@ public class JsonBindings
     @Override
     public JsonElement create(JsonElement other) { return other; }
     @Override
-    public TypeExpr typeExpr() { return new TypeExpr(TypeRef.primitive("Json"), new ArrayList<>()); }
+    public TypeExpr typeExpr() { return new TypeExpr(new TypeRef.Primitive("Json"), new ArrayList<>()); }
     @Override
     public JsonBinding<JsonElement> jsonBinding() { return JSON; }
   };
