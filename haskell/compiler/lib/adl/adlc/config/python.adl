@@ -5,4 +5,13 @@ module adlc.config.python {
 
 type PythonGenerate = Bool;
 
+struct PythonCustomType
+{
+    // The fully scoped Python name of the type to be used
+    String pyname;
+
+    // add extra imports
+    Vector<String> imports;
+};
+
 };
